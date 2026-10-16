@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="林口鄭公館 13F 即時 3D 樣品屋：自由走動，點櫃門、電視、冷氣、洗衣機可以開關與調整。">
+<title>鄭公館 13F 即時 3D</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+/* Layout: full-bleed 3D canvas; slim chrome on the edges — room rail at top, controls at bottom, device card on the right. Single dark look by choice (it sits over a lit room). */
+:root{
+  --ink:#f3ece2;        /* text on glass */
+  --dim:#b9ad9e;        /* secondary text */
+  --glass:rgba(24,20,17,.78);
+  --line:rgba(243,236,226,.16);
+  --oak:#c99a62;        /* accent: the oak veneer of the joinery */
+  --on:#7fc8a9;         /* semantic: device running */
+  --display:"Noto Serif TC","Songti TC",serif;
+  --body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;background:#15120f;color:var(--ink);font-family:var(--body);overflow:hidden}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none}
+.glass{background:var(--glass);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:10px}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:2px solid var(--oak);outline-offset:2px}
+
+.top{position:fixed;left:0;right:0;top:0;padding-top:calc(10px + env(safe-area-inset-top,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;gap:12px;align-items:center;pointer-events:none;z-index:5}
+.brand{pointer-events:auto;padding:8px 14px;display:flex;flex-direction:column;gap:1px;flex:none}
+.brand b{font-family:var(--display);font-size:17px;letter-spacing:.06em;font-weight:600}
+.brand span{font-size:11px;color:var(--dim);letter-spacing:.08em}
+.rooms{pointer-events:auto;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:6px;min-width:0}
+.rooms::-webkit-scrollbar{display:none}
+.rooms button{flex:none;background:transparent;border:1px solid transparent;border-radius:7px;padding:6px 11px;font-size:13px;color:var(--dim)}
+.rooms button:hover{color:var(--ink)}
+.rooms button[aria-current="true"]{color:#1c1610;background:var(--oak);font-weight:700}
+
+.bar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));display:flex;gap:6px;padding:6px;z-index:5}
+.bar button{background:transparent;border:1px solid var(--line);border-radius:8px;padding:8px 13px;font-size:13px;display:flex;gap:6px;align-items:center;white-space:nowrap}
+.bar button[aria-pressed="true"]{border-color:var(--oak);color:var(--oak)}
+.bar button .k{font-size:11px;color:var(--dim)}
+
+.hint{position:fixed;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));font-size:12px;color:var(--dim);padding:8px 12px;max-width:260px;line-height:1.6;z-index:4}
+
+.map{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));width:220px;padding:6px;z-index:4}
+.map .pl{position:relative;border-radius:6px;overflow:hidden;aspect-ratio:2000/1750;max-width:100%}
+.map img{display:block;width:100%;height:100%;object-fit:cover;opacity:.92}
+.map .me{position:absolute;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:var(--oak);box-shadow:0 0 0 3px rgba(201,154,98,.35)}
+.map .me i{position:absolute;left:50%;top:50%;width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:16px solid rgba(201,154,98,.55);transform-origin:50% 100%;margin:-16px 0 0 -6px}
+.map .cap{font-size:11px;color:var(--dim);padding:5px 4px 1px;display:flex;justify-content:space-between}
+
+.card{position:fixed;right:max(16px,env(safe-area-inset-right,0px));top:calc(74px + env(safe-area-inset-top,0px));width:260px;padding:14px 16px;z-index:6;display:flex;flex-direction:column;gap:10px}
+.card h3{margin:0;font-family:var(--display);font-size:18px;font-weight:600;letter-spacing:.04em;display:flex;justify-content:space-between;align-items:center}
+.card .st{font-size:12px;padding:2px 9px;border-radius:999px;border:1px solid var(--line);color:var(--dim);font-family:var(--body)}
+.card .st.on{color:#10261c;background:var(--on);border-color:var(--on)}
+.card p{margin:0;font-size:13px;color:var(--dim);line-height:1.6}
+.card .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.card .row button{background:transparent;border:1px solid var(--line);border-radius:7px;padding:6px 12px;font-size:13px}
+.card .row button.pri{background:var(--oak);color:#1c1610;border-color:var(--oak);font-weight:700}
+.card .val{font-variant-numeric:tabular-nums;font-size:22px;min-width:64px;text-align:center}
+.card .x{background:none;border:0;color:var(--dim);font-size:20px;line-height:1;padding:0 2px}
+.card label{font-size:13px;display:flex;gap:8px;align-items:center;justify-content:space-between}
+.card input[type=range]{flex:1;accent-color:var(--oak)}
+.lights{max-height:52vh;overflow:auto;display:flex;flex-direction:column;gap:8px}
+.lights .lr{display:grid;grid-template-columns:70px 1fr 46px;gap:8px;align-items:center;font-size:13px}
+.lights .lr button{border:1px solid var(--line);background:transparent;border-radius:6px;padding:3px 0;font-size:12px}
+.lights .lr button[aria-pressed="true"]{background:var(--oak);color:#1c1610;border-color:var(--oak)}
+
+.tip{position:fixed;pointer-events:none;z-index:7;font-size:12px;padding:4px 9px;border-radius:6px;background:var(--glass);border:1px solid var(--line);transform:translate(14px,14px);white-space:nowrap}
+.toast{position:fixed;left:50%;top:calc(80px + env(safe-area-inset-top,0px));transform:translateX(-50%);padding:9px 16px;font-size:14px;z-index:8;transition:opacity .25s}
+.cross{position:fixed;left:50%;top:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:rgba(243,236,226,.7);z-index:3;pointer-events:none}
+
+.load{position:fixed;inset:0;display:grid;place-items:center;background:#15120f;z-index:20;transition:opacity .6s}
+.load .in{width:min(360px,84vw);display:flex;flex-direction:column;gap:14px;text-align:center}
+.load b{font-family:var(--display);font-size:24px;letter-spacing:.1em;font-weight:600}
+.load .tr{height:3px;background:var(--line);border-radius:3px;overflow:hidden}
+.load .tr i{display:block;height:100%;width:0;background:var(--oak);transition:width .2s}
+.load span{font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums}
+
+.joy{position:fixed;left:calc(22px + env(safe-area-inset-left,0px));bottom:calc(22px + env(safe-area-inset-bottom,0px));width:110px;height:110px;border-radius:50%;z-index:5;display:none;touch-action:none}
+.joy i{position:absolute;left:50%;top:50%;width:44px;height:44px;margin:-22px;border-radius:50%;background:rgba(201,154,98,.8)}
+@media (pointer:coarse){ .joy{display:block} .hint{display:none} }
+@media (max-width:760px){
+  .map{width:130px} .brand span{display:none}
+  .bar{left:auto;right:max(16px,env(safe-area-inset-right,0px));transform:none;bottom:calc(150px + env(safe-area-inset-bottom,0px));flex-direction:column}
+  .bar button .k{display:none}
+  .card{left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));width:auto;top:auto;bottom:calc(150px + env(safe-area-inset-bottom,0px))}
+}
+@media (prefers-reduced-motion:reduce){ .load,.toast{transition:none} }
+</style>
+</head>
+<body>
+
+
+<canvas id="c" tabindex="0" aria-label="鄭公館 13F 即時 3D 場景"></canvas>
+<div class="cross" aria-hidden="true"></div>
+
+<header class="top">
+  <div class="brand glass"><b>鄭公館 13F</b><span>林口・即時 3D 樣品屋</span></div>
+  <nav class="rooms glass" id="rooms" aria-label="空間"></nav>
+</header>
+
+<div class="hint glass" id="hint">拖曳轉頭・<b>W A S D</b> 或方向鍵走動・雙擊地板走過去・<b>點櫃門、電視、家電</b>可以開關</div>
+
+<div class="bar glass" role="toolbar" aria-label="場景控制">
+  <button id="bDay" aria-pressed="false">☀ 白天<span class="k">N</span></button>
+  <button id="bLights" aria-pressed="false">燈光<span class="k">L</span></button>
+  <button id="bDoors" aria-pressed="false">全部櫃門<span class="k">O</span></button>
+</div>
+
+<div class="map glass" aria-label="平面圖">
+  <div class="pl" id="pl"><img src="plan.jpg" alt="平面圖"><div class="me" id="me"><i id="cone"></i></div></div>
+  <div class="cap"><span id="roomNow">玄關</span><span>點平面圖瞬移</span></div>
+</div>
+
+<aside class="card glass" id="card" hidden aria-live="polite"></aside>
+<div class="tip" id="tip" hidden></div>
+<div class="toast glass" id="toast" hidden></div>
+<div class="joy glass" id="joy" aria-hidden="true"><i id="knob"></i></div>
+
+<div class="load" id="load"><div class="in"><b>鄭公館 13F</b><div class="tr"><i id="bar"></i></div><span id="lt">載入模型 0%</span></div></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "./lib/three.module.js",
+  "three/addons/": "./lib/jsm/",
+  "three-mesh-bvh": "./lib/three-mesh-bvh.module.js"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
+THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
+THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
+THREE.Mesh.prototype.raycast = acceleratedRaycast;
+
+const $ = id => document.getElementById(id);
+const canvas = $('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.6));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.85;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(70, 1, 0.05, 200);
+const EYE = 1.5;
+
+/* --- the 12 viewpoints, Blender metres (x, y); yaw like the 360° tour: 0 faces +Y, positive turns right --- */
+const R = {
+  lobby:{zh:'玄關',x:3.85,y:-3.75,yaw:-55}, living:{zh:'客廳',x:3.30,y:1.60,yaw:0}, dining:{zh:'餐廳',x:3.60,y:-1.30,yaw:0},
+  balcony:{zh:'前陽台',x:3.00,y:4.10,yaw:0}, hall:{zh:'走道',x:-0.30,y:0.30,yaw:-90}, master:{zh:'主臥室',x:-2.30,y:2.10,yaw:-60},
+  bath1:{zh:'主臥浴廁',x:-4.05,y:-0.55,yaw:0}, kids:{zh:'小孩房',x:0.70,y:1.70,yaw:-30}, study:{zh:'書房',x:0.20,y:-2.20,yaw:40},
+  bath2:{zh:'浴廁',x:-2.15,y:-0.95,yaw:-120}, kitchen:{zh:'廚房',x:0.80,y:-3.75,yaw:-90}, balcB:{zh:'後陽台',x:-1.55,y:-3.45,yaw:-100}
+};
+const ORDER = ['lobby','living','dining','balcony','hall','master','bath1','kids','study','bath2','kitchen','balcB'];
+const LROOM = {'客廳':'living','餐廳':'dining','前陽台':'balcony','走道':'hall','主臥室':'master','主臥浴廁':'bath1','小孩房':'kids','書房':'study','浴廁':'bath2','廚房':'kitchen','玄關':'lobby','後陽台':'balcB'};
+
+/* --- sky and image-based light --- */
+const pmrem = new THREE.PMREMGenerator(renderer);
+const tl = new THREE.TextureLoader();
+let envDay, envNight, skyDay, skyNight;
+function loadSky(url){ return new Promise(r => tl.load(url, t => { t.mapping = THREE.EquirectangularReflectionMapping; t.colorSpace = THREE.SRGBColorSpace; r(t); })); }
+
+const sun = new THREE.DirectionalLight(0xffeedd, 3.2);
+const sunDir = new THREE.Vector3(-0.312, -0.407, 0.858).normalize();
+sun.position.copy(sunDir).multiplyScalar(-18); sun.target.position.set(0,0,0);
+sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096);
+Object.assign(sun.shadow.camera, { left:-9, right:9, top:9, bottom:-9, near:1, far:40 });
+sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
+scene.add(sun, sun.target);
+const hemi = new THREE.HemisphereLight(0xfff4e6, 0x6b5a48, 0.35); scene.add(hemi);
+
+/* --- room lights: one warm point light per room, placed at the centre of its downlights --- */
+const rooms = {};       // id -> {light, on, level}
+const extra = {};       // fish tank, salt lamp, bedside
+async function buildLights(){
+  const L = await (await fetch('lights.json')).json();
+  const acc = {};
+  for (const l of L){
+    const m = l.n.split('.')[0].split('_'); const kind = m[0], where = m[1];
+    if (kind === '太陽') continue;
+    if (kind === '燈'){ const pl = new THREE.PointLight(where==='魚缸燈'?0x9fd8ff:0xffb06a, where==='魚缸燈'?0.8:1.2, 2.2, 2); pl.position.set(l.p[0], l.p[1], l.p[2]); scene.add(pl); extra[where] = pl; continue; }
+    const id = LROOM[where]; if (!id) continue;
+    (acc[id] ||= []).push(l.p);
+  }
+  for (const id in acc){
+    const ps = acc[id], c = ps.reduce((a,p)=>[a[0]+p[0],a[1]+p[1],a[2]+p[2]],[0,0,0]).map(v=>v/ps.length);
+    const n = ps.length;
+    const pl = new THREE.PointLight(0xffd9ad, 1.4 + 0.7*n, 7.0, 1.7); pl.position.set(c[0], 2.35, c[2]);
+    scene.add(pl); rooms[id] = { light: pl, base: pl.intensity, on: true, level: 1 };
+  }
+}
+
+/* --- models --- */
+const draco = new DRACOLoader(); draco.setDecoderPath('draco/');
+const gltf = new GLTFLoader(); gltf.setDRACOLoader(draco);
+const progress = {house:0, items:0};
+function setProg(){ const p = Math.round((progress.house*0.33 + progress.items*0.67)*100); $('bar').style.width = p+'%'; $('lt').textContent = '載入模型 '+p+'%'; }
+function load(url, key){ return new Promise((res, rej) => gltf.load(url, g => { progress[key]=1; setProg(); res(g.scene); }, e => { if (e.total) { progress[key] = e.loaded/e.total; setProg(); } }, rej)); }
+
+const colliders = [], pickables = [];
+const doors = [];        // {node, base:Quaternion, sgn, t, to}
+let tvScreen = null;
+const devices = {};      // name -> state
+
+function prep(root, collide){
+  root.traverse(o => {
+    if (!o.isMesh) return;
+    o.castShadow = true; o.receiveShadow = true;
+    const ms = Array.isArray(o.material) ? o.material : [o.material];
+    for (const m of ms){
+      if (m.transmission > 0){ m.transmission = 0; m.transparent = true; m.opacity = 0.18; m.roughness = 0.05; m.depthWrite = false; o.castShadow = false; }
+      if (m.map) m.map.anisotropy = 4;
+      m.envMapIntensity = 0.9;
+    }
+    o.geometry.computeBoundsTree();
+    pickables.push(o);
+    if (collide) colliders.push(o);
+  });
+}
+
+/* fabric colours for the garments and shoes (Blender varies them per object; glTF cannot, so it is redone here) */
+const FABRIC = [[0.08,0.12,0.25],[0.55,0.45,0.33],[0.05,0.05,0.05],[0.30,0.33,0.22],[0.40,0.08,0.10],[0.85,0.85,0.82],[0.45,0.47,0.50],[0.62,0.50,0.38]];
+function hashName(n){ let h = 2166136261; for (const c of n) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return (h >>> 0); }
+function tintFabric(root){
+  for (const top of root.children){
+    const n = top.name || '';
+    if (!/^真實_(衣|童_衣|鞋)/.test(n)) continue;
+    const c = FABRIC[hashName(n) % FABRIC.length], col = new THREE.Color().setRGB(c[0]*1.15, c[1]*1.15, c[2]*1.15);
+    top.traverse(o => { if (!o.isMesh) return; o.material = o.material.clone(); o.material.color.multiply(col); });
+  }
+}
+function findDoors(root){
+  root.updateMatrixWorld(true);
+  const box = new THREE.Box3(), size = new THREE.Vector3();
+  const cands = [];
+  root.traverse(o => { if (o.userData && o.userData.open_sgn !== undefined) cands.push(o); });
+  const set = new Set(cands);
+  for (const o of cands){
+    let inner = false; o.traverse(c => { if (c !== o && set.has(c)) { let has=false; c.traverse(m=>{ if(m.isMesh) has=true; }); if (has) inner = true; } });
+    if (inner) continue;
+    box.setFromObject(o); if (box.isEmpty()) continue; box.getSize(size);
+    const d = [size.x, size.y, size.z].sort((a,b)=>a-b);
+    if (!(d[0] < 0.12 && d[1] > 0.12 && d[1] < 1.35 && d[2] < 2.8)) continue;
+    doors.push({ node:o, base:o.quaternion.clone(), sgn: o.userData.open_sgn > 0 ? 1 : -1, t:0, to:0, big: d[2] > 1.85 && d[1] > 0.6 });
+    o.userData.doorIndex = doors.length-1;
+  }
+}
+
+const NAMES = { '冰箱':'冰箱','冷氣':'冷氣','咖啡機':'咖啡機','洗衣機':'滾筒洗衣機','熱水器':'恆溫熱水器','電視':'75 吋電視','電鍋':'電子鍋','魚缸':'魚缸','馬桶':'馬桶' };
+function deviceOf(o){
+  for (let p = o; p; p = p.parent){
+    const n = p.name || '';
+    if (p.userData && p.userData.doorIndex !== undefined) return { kind:'door', door: doors[p.userData.doorIndex] };
+    if (n.startsWith('真實_電視')) return { kind:'tv', key:'tv' };
+    if (n.startsWith('真實_')){
+      const k = n.slice(3).split('_')[0].split('.')[0];
+      if (NAMES[k]) return { kind:'dev', key: n.split('.')[0], type:k };
+    }
+  }
+  return null;
+}
+
+/* --- TV channels: photographs only, no broadcaster footage --- */
+const CH = ['ch0.jpg','ch1.jpg','ch2.jpg','ch3.jpg','ch4.jpg','ch5.jpg','ch6.jpg'].map(u => { const t = tl.load(u); t.colorSpace = THREE.SRGBColorSpace; t.flipY = false; return t; });
+const CHN = ['街景','海邊夕陽','森林草地','山岩雲海','丘陵綠地','外灘夜景','星空草原'];
+const tv = { on:false, ch:0, vol:12 };
+function setTV(){
+  if (!tvScreen) return;
+  tvScreen.visible = tv.on;
+  const m = tvScreen.material; m.map = CH[tv.ch]; m.emissiveMap = CH[tv.ch]; m.emissive = new THREE.Color(1,1,1); m.emissiveIntensity = 0.85; m.needsUpdate = true;
+}
+
+/* --- interaction card --- */
+const card = $('card');
+function closeCard(){ card.hidden = true; card.innerHTML = ''; }
+function stateChip(on, txtOn, txtOff){ return `<span class="st ${on?'on':''}">${on?txtOn:txtOff}</span>`; }
+function showDevice(d){
+  if (d.kind === 'tv'){
+    card.innerHTML = `<h3>75 吋電視 ${stateChip(tv.on,'開機','待機')}<button class="x" data-a="close" aria-label="關閉">×</button></h3>
+      <p>${tv.on ? '第 '+(tv.ch+1)+' 台・'+CHN[tv.ch] : '按電源開機，畫面是真實拍攝的風景照。'}</p>
+      <div class="row"><button class="pri" data-a="pow">${tv.on?'關機':'開機'}</button><button data-a="chd" ${tv.on?'':'disabled'}>頻道 −</button><button data-a="chu" ${tv.on?'':'disabled'}>頻道 +</button></div>
+      <div class="row"><button data-a="vd" ${tv.on?'':'disabled'}>音量 −</button><span class="val">${tv.vol}</span><button data-a="vu" ${tv.on?'':'disabled'}>音量 +</button></div>`;
+    card.onclick = e => { const a = e.target.dataset.a; if (!a) return;
+      if (a==='close') return closeCard();
+      if (a==='pow') tv.on = !tv.on; if (a==='chu') tv.ch = (tv.ch+1)%CH.length; if (a==='chd') tv.ch = (tv.ch+CH.length-1)%CH.length;
+      if (a==='vu') tv.vol = Math.min(40, tv.vol+1); if (a==='vd') tv.vol = Math.max(0, tv.vol-1);
+      setTV(); showDevice(d); };
+  } else {
+    const k = d.key, t = d.type; const s = devices[k] ||= { on:false, temp:26, mode:0, prog:0 };
+    let body = '', ctrl = '';
+    if (t === '冷氣'){
+      const modes = ['冷氣','除濕','送風'];
+      body = s.on ? `${modes[s.mode]}模式・設定 ${s.temp}°C` : '分離式變頻冷氣，點開機後可以調溫度與模式。';
+      ctrl = `<div class="row"><button class="pri" data-a="pow">${s.on?'關機':'開機'}</button><button data-a="mode" ${s.on?'':'disabled'}>模式：${modes[s.mode]}</button></div>
+        <div class="row"><button data-a="td" ${s.on?'':'disabled'}>−</button><span class="val">${s.temp}°C</span><button data-a="tu" ${s.on?'':'disabled'}>＋</button></div>`;
+    } else if (t === '洗衣機'){
+      const P = ['標準','快洗 15 分','大件棉被','輕柔衣物'];
+      body = s.on ? `${P[s.prog]}行程運轉中` : '前開式滾筒，選好行程再按啟動。';
+      ctrl = `<div class="row"><button data-a="prog">行程：${P[s.prog]}</button><button class="pri" data-a="pow">${s.on?'暫停':'啟動'}</button></div>`;
+    } else if (t === '熱水器'){
+      body = s.on ? `出水溫度 ${s.temp+16}°C` : '屋外型恆溫燃氣熱水器。';
+      ctrl = `<div class="row"><button class="pri" data-a="pow">${s.on?'關閉':'點火'}</button></div><div class="row"><button data-a="td" ${s.on?'':'disabled'}>−</button><span class="val">${s.temp+16}°C</span><button data-a="tu" ${s.on?'':'disabled'}>＋</button></div>`;
+    } else if (t === '魚缸'){
+      body = s.on ? '魚缸燈已開，水草燈色 6500K。' : '45 × 24 公分小魚缸，點開燈。';
+      ctrl = `<div class="row"><button class="pri" data-a="pow">${s.on?'關燈':'開燈'}</button></div>`;
+    } else {
+      const lines = { '冰箱':['雙門冰箱，冷藏 3°C・冷凍 −18°C。','門已打開，冷藏燈亮。'], '咖啡機':['義式咖啡機，按一下開始萃取。','萃取中，約 25 秒一杯濃縮。'],
+        '電鍋':['電子鍋，按一下開始煮飯。','炊飯中，剩 32 分鐘。'], '馬桶':['單體馬桶，按一下沖水。','沖水中。'] }[t] || ['',''];
+      body = s.on ? lines[1] : lines[0];
+      ctrl = `<div class="row"><button class="pri" data-a="pow">${s.on?'停止':'按下'}</button></div>`;
+    }
+    card.innerHTML = `<h3>${NAMES[t]} ${stateChip(s.on,'運轉中','關')}<button class="x" data-a="close" aria-label="關閉">×</button></h3><p>${body}</p>${ctrl}`;
+    card.onclick = e => { const a = e.target.dataset.a; if (!a) return;
+      if (a==='close') return closeCard();
+      if (a==='pow') s.on = !s.on; if (a==='mode') s.mode = (s.mode+1)%3; if (a==='prog') s.prog = (s.prog+1)%4;
+      if (a==='tu') s.temp = Math.min(t==='熱水器'?44:30, s.temp+1); if (a==='td') s.temp = Math.max(t==='熱水器'?19:16, s.temp-1);
+      if (t==='魚缸' && extra['魚缸燈']) extra['魚缸燈'].visible = s.on;
+      showDevice(d); };
+  }
+  card.hidden = false;
+}
+function showLights(){
+  const rowsHtml = ORDER.filter(id => rooms[id]).map(id => { const r = rooms[id];
+    return `<div class="lr"><span>${R[id].zh}</span><input type="range" min="10" max="150" value="${Math.round(r.level*100)}" data-id="${id}" id="dim-${id}" aria-label="${R[id].zh}亮度"><button data-t="${id}" aria-pressed="${r.on}">${r.on?'開':'關'}</button></div>`; }).join('');
+  card.innerHTML = `<h3>燈光<button class="x" data-a="close" aria-label="關閉">×</button></h3>
+    <div class="row"><button class="pri" data-a="all1">全開</button><button data-a="all0">全關</button></div>
+    <div class="lights">${rowsHtml}</div><p>拉桿調亮度，按鈕開關。夜間模式下最明顯。</p>`;
+  card.onclick = e => { const a = e.target.dataset.a, t = e.target.dataset.t;
+    if (a==='close') return closeCard();
+    if (a==='all1'||a==='all0') { for (const id in rooms) rooms[id].on = a==='all1'; applyLights(); showLights(); }
+    if (t){ rooms[t].on = !rooms[t].on; applyLights(); showLights(); } };
+  card.oninput = e => { const id = e.target.dataset.id; if (id){ rooms[id].level = e.target.value/100; rooms[id].on = true; applyLights(); const b = card.querySelector(`[data-t="${id}"]`); b.setAttribute('aria-pressed','true'); b.textContent='開'; } };
+  card.hidden = false;
+}
+function applyLights(){ for (const id in rooms){ const r = rooms[id]; r.light.visible = r.on; r.light.intensity = r.base * r.level * (night ? 1.25 : 1); } }
+
+/* --- day / night --- */
+let night = false;
+function applyTime(){
+  scene.background = night ? skyNight : skyDay;
+  scene.environment = night ? envNight : envDay;
+  scene.backgroundIntensity = night ? 0.35 : 1;
+  scene.environmentIntensity = night ? 0.12 : 0.85;
+  sun.visible = !night; hemi.intensity = night ? 0.04 : 0.35;
+  renderer.toneMappingExposure = night ? 1.0 : 0.85;
+  $('bDay').innerHTML = (night ? '☾ 夜晚' : '☀ 白天') + '<span class="k">N</span>';
+  $('bDay').setAttribute('aria-pressed', night);
+  applyLights();
+}
+
+/* --- toast / tooltip --- */
+let toastT;
+function toast(s){ const t = $('toast'); t.textContent = s; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(()=> t.hidden = true, 1600); }
+
+/* --- player --- */
+const player = { pos:new THREE.Vector3(), yaw:0, pitch:-0.05, goal:null };
+function yawFromTour(deg){ return deg*Math.PI/180; }
+function goRoom(id, instant){
+  const r = R[id]; player.goal = null;
+  player.pos.set(r.x, 0, -r.y); player.yaw = yawFromTour(r.yaw); player.pitch = -0.05;
+  markRoom(id);
+}
+function markRoom(id){ $('roomNow').textContent = R[id].zh; for (const b of $('rooms').children) b.setAttribute('aria-current', b.dataset.id === id); }
+function nearestRoom(){ let best=null, bd=1e9; for (const id of ORDER){ const r=R[id], d=(player.pos.x-r.x)**2+(player.pos.z+r.y)**2; if (d<bd){bd=d;best=id;} } return best; }
+
+const ray = new THREE.Raycaster(); ray.firstHitOnly = true;
+function blocked(from, dir, dist){
+  for (const h of [0.35, 1.1]){
+    ray.set(new THREE.Vector3(from.x, h, from.z), dir); ray.far = dist + 0.28;
+    if (ray.intersectObjects(colliders, false).length) return true;
+  }
+  return false;
+}
+function tryMove(dx, dz){
+  const len = Math.hypot(dx, dz); if (len < 1e-5) return;
+  const d = new THREE.Vector3(dx/len, 0, dz/len);
+  if (!blocked(player.pos, d, len)) { player.pos.x += dx; player.pos.z += dz; return; }
+  if (Math.abs(dx) > 1e-5 && !blocked(player.pos, new THREE.Vector3(Math.sign(dx),0,0), Math.abs(dx))) player.pos.x += dx;
+  else if (Math.abs(dz) > 1e-5 && !blocked(player.pos, new THREE.Vector3(0,0,Math.sign(dz)), Math.abs(dz))) player.pos.z += dz;
+  else player.goal = null;
+}
+
+/* --- input --- */
+const keys = new Set();
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  const k = e.key.toLowerCase(); keys.add(k);
+  if (k==='n'){ night = !night; applyTime(); }
+  if (k==='l'){ card.hidden || !card.querySelector('.lights') ? showLights() : closeCard(); }
+  if (k==='o') toggleAllDoors();
+  if (k==='escape') closeCard();
+});
+addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
+addEventListener('blur', () => keys.clear());
+
+let drag = null, lastTap = 0;
+canvas.addEventListener('pointerdown', e => { canvas.focus(); drag = { id:e.pointerId, x:e.clientX, y:e.clientY, sx:e.clientX, sy:e.clientY, t:performance.now() }; canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointermove', e => {
+  if (drag && drag.id === e.pointerId){
+    const s = e.pointerType === 'touch' ? 0.006 : 0.0042;
+    player.yaw += (e.clientX - drag.x) * s; player.pitch += (e.clientY - drag.y) * s;
+    player.pitch = Math.max(-1.3, Math.min(1.2, player.pitch)); drag.x = e.clientX; drag.y = e.clientY;
+  } else hover(e);
+});
+canvas.addEventListener('pointerup', e => {
+  if (!drag) return; const moved = Math.hypot(e.clientX-drag.sx, e.clientY-drag.sy), dt = performance.now()-drag.t; drag = null;
+  if (moved < 7 && dt < 450){ const now = performance.now(); click(e, now - lastTap < 320); lastTap = now; }
+});
+const ndc = new THREE.Vector2();
+function pick(e){
+  const r = canvas.getBoundingClientRect(); ndc.set((e.clientX-r.left)/r.width*2-1, -(e.clientY-r.top)/r.height*2+1);
+  ray.setFromCamera(ndc, camera); ray.far = 12;
+  const h = ray.intersectObjects(pickables, false).filter(x => x.object.visible && !(x.object.material && x.object.material.opacity < 0.3)); return h[0] || null;
+}
+function click(e, dbl){
+  const h = pick(e); if (!h) return;
+  const d = deviceOf(h.object);
+  if (d && h.distance < 4.5){
+    if (d.kind === 'door'){ d.door.to = d.door.to ? 0 : 1; toast(d.door.to ? '打開' : '關上'); }
+    else showDevice(d);
+    return;
+  }
+  if (dbl && h.face && h.face.normal.y > 0.6 && h.point.y < 0.2){ player.goal = new THREE.Vector3(h.point.x, 0, h.point.z); }
+}
+const tip = $('tip');
+let hoverT = 0;
+function hover(e){
+  const now = performance.now(); if (now - hoverT < 60) return; hoverT = now;
+  const h = pick(e); const d = h && h.distance < 4.5 ? deviceOf(h.object) : null;
+  if (d){ tip.hidden = false; tip.style.left = e.clientX+'px'; tip.style.top = e.clientY+'px';
+    tip.textContent = d.kind==='door' ? (d.door.to ? '點一下關上' : '點一下打開') : (d.kind==='tv' ? '75 吋電視・點一下操作' : NAMES[d.type]+'・點一下操作');
+    canvas.style.cursor = 'pointer'; }
+  else { tip.hidden = true; canvas.style.cursor = 'grab'; }
+}
+canvas.addEventListener('pointerleave', () => tip.hidden = true);
+
+/* touch joystick */
+const joy = $('joy'), knob = $('knob'); const stick = { x:0, y:0, id:null };
+function setStick(e){ const b = joy.getBoundingClientRect(); let x = e.clientX-(b.left+b.width/2), y = e.clientY-(b.top+b.height/2); const m = Math.hypot(x,y), lim = b.width/2-18; if (m>lim){ x*=lim/m; y*=lim/m; } stick.x = x/lim; stick.y = y/lim; knob.style.transform = `translate(${x}px,${y}px)`; }
+joy.addEventListener('pointerdown', e => { stick.id = e.pointerId; joy.setPointerCapture(e.pointerId); setStick(e); });
+joy.addEventListener('pointermove', e => { if (stick.id === e.pointerId) setStick(e); });
+const endStick = () => { stick.id = null; stick.x = stick.y = 0; knob.style.transform = ''; };
+joy.addEventListener('pointerup', endStick); joy.addEventListener('pointercancel', endStick);
+
+/* buttons */
+function toggleAllDoors(){ const any = doors.some(d => d.to === 0 && !d.big); for (const d of doors) if (!d.big) d.to = any ? 1 : 0; $('bDoors').setAttribute('aria-pressed', any); toast(any ? '全屋櫃門打開' : '全屋櫃門關上'); }
+$('bDay').onclick = () => { night = !night; applyTime(); };
+$('bLights').onclick = () => { if (!card.hidden && card.querySelector('.lights')) closeCard(); else showLights(); };
+$('bDoors').onclick = toggleAllDoors;
+for (const id of ORDER){ const b = document.createElement('button'); b.textContent = R[id].zh; b.dataset.id = id; b.onclick = () => goRoom(id); $('rooms').appendChild(b); }
+
+/* floor plan: ortho camera centred (0.23, 0), 11.6 m wide, 2000 × 1750 px */
+const PW = 11.6, PH = 11.6*1750/2000;
+$('pl').addEventListener('click', e => { const r = e.currentTarget.getBoundingClientRect(); const u = (e.clientX-r.left)/r.width, v = (e.clientY-r.top)/r.height;
+  const x = (u-0.5)*PW + 0.23, y = (0.5-v)*PH; let best=null, bd=1e9; for (const id of ORDER){ const d=(R[id].x-x)**2+(R[id].y-y)**2; if(d<bd){bd=d;best=id;} } goRoom(best); });
+
+/* --- loop --- */
+function resize(){ const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w/h; camera.updateProjectionMatrix(); }
+addEventListener('resize', resize); resize();
+const q = new THREE.Quaternion(), up = new THREE.Vector3(0,1,0);
+let last = performance.now(), roomTick = 0;
+function frame(now){
+  const dt = Math.min(0.05, (now-last)/1000); last = now;
+  let f = 0, s = 0;
+  if (keys.has('w')||keys.has('arrowup')) f += 1; if (keys.has('s')||keys.has('arrowdown')) f -= 1;
+  if (keys.has('a')) s -= 1; if (keys.has('d')) s += 1;
+  if (keys.has('arrowleft')) player.yaw -= 1.8*dt; if (keys.has('arrowright')) player.yaw += 1.8*dt;
+  if (stick.id !== null){ f -= stick.y; s += stick.x; }
+  const speed = (keys.has('shift') ? 2.6 : 1.4) * dt;
+  if (f || s){ player.goal = null; const m = Math.min(1, Math.hypot(f,s)); const a = Math.atan2(s, f);
+    const dir = -player.yaw + Math.PI; // forward is −Z rotated by yaw
+    const fx = Math.sin(player.yaw), fz = -Math.cos(player.yaw);
+    const rx = Math.cos(player.yaw), rz = Math.sin(player.yaw);
+    tryMove((fx*f + rx*s)/Math.max(1,Math.hypot(f,s))*speed*m*Math.max(1,Math.hypot(f,s)), (fz*f + rz*s)/Math.max(1,Math.hypot(f,s))*speed*m*Math.max(1,Math.hypot(f,s))); }
+  if (player.goal){ const gx = player.goal.x-player.pos.x, gz = player.goal.z-player.pos.z, gd = Math.hypot(gx,gz);
+    if (gd < 0.05) player.goal = null; else { const st = Math.min(gd, 1.6*dt); player.yaw += Math.atan2(Math.sin(Math.atan2(gx,-gz)-player.yaw), Math.cos(Math.atan2(gx,-gz)-player.yaw))*Math.min(1,dt*4); tryMove(gx/gd*st, gz/gd*st); } }
+  camera.position.set(player.pos.x, EYE, player.pos.z);
+  camera.rotation.set(0,0,0); camera.rotateY(-player.yaw); camera.rotateX(-player.pitch);
+  for (const d of doors){ if (d.t !== d.to){ d.t += Math.sign(d.to-d.t)*dt*1.8; d.t = Math.max(0, Math.min(1, d.t)); if (Math.abs(d.t-d.to) < 0.01) d.t = d.to;
+      const e = d.t*d.t*(3-2*d.t); q.setFromAxisAngle(up, e*1.75*d.sgn); d.node.quaternion.copy(d.base).multiply(q); } }
+  if ((roomTick += dt) > 0.4){ roomTick = 0; const id = nearestRoom(); if (id && $('roomNow').textContent !== R[id].zh) markRoom(id);
+    const u = ((player.pos.x-0.23)/PW+0.5)*100, v = (0.5-(-player.pos.z)/PH)*100; const me = $('me'); me.style.left = u+'%'; me.style.top = v+'%'; $('cone').style.transform = `rotate(${player.yaw}rad)`; }
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+
+/* --- boot --- */
+(async () => {
+  try{
+    const [sd, sn] = await Promise.all([loadSky('sky.jpg'), loadSky('sky_night.jpg')]);
+    skyDay = sd; skyNight = sn; envDay = pmrem.fromEquirectangular(sd).texture; envNight = pmrem.fromEquirectangular(sn).texture;
+    await buildLights();
+    const [house, items] = await Promise.all([load('house.glb','house'), load('items.glb','items')]);
+    $('lt').textContent = '準備互動物件…';
+    await new Promise(r => setTimeout(r, 30));
+    scene.add(house, items);
+    prep(house, true); prep(items, false); tintFabric(items);
+    const hide = items.getObjectByName('漫遊目標') || house.getObjectByName('漫遊目標'); if (hide) hide.visible = false;
+    findDoors(house);
+    items.traverse(o => { if (o.name === '真實_電視畫面'){ tvScreen = o.isMesh ? o : (o.children.find(c=>c.isMesh) || o); } });
+    if (tvScreen && tvScreen.isMesh){ tvScreen.material = tvScreen.material.clone(); }
+    setTV();
+    if (extra['魚缸燈']) extra['魚缸燈'].visible = false;
+    applyTime();
+    goRoom('lobby', true);
+    $('load').style.opacity = 0; setTimeout(()=> $('load').hidden = true, 650);
+    requestAnimationFrame(frame);
+    console.log('[home] doors', doors.length, 'pickables', pickables.length);
+  } catch(err){ console.error(err); $('lt').textContent = '載入失敗：' + (err && err.message || err) + '。請重新整理頁面。'; }
+})();
+</script>
+
+</body>
+</html>
