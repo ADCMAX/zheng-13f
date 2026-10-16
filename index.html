@@ -202,8 +202,8 @@ async function buildLights(){
 /* --- models --- */
 const draco = new DRACOLoader(); draco.setDecoderPath('draco/');
 const gltf = new GLTFLoader(); gltf.setDRACOLoader(draco);
-const progress = {house:0, items:0};
-function setProg(){ const p = Math.round((progress.house*0.33 + progress.items*0.67)*100); $('bar').style.width = p+'%'; $('lt').textContent = '載入模型 '+p+'%'; }
+const progress = {house:0, items:0, items2:0};
+function setProg(){ const p = Math.round((progress.house*0.2 + progress.items*0.4 + progress.items2*0.4)*100); $('bar').style.width = p+'%'; $('lt').textContent = '載入模型 '+p+'%'; }
 function load(url, key){ return new Promise((res, rej) => gltf.load(url, g => { progress[key]=1; setProg(); res(g.scene); }, e => { if (e.total) { progress[key] = e.loaded/e.total; setProg(); } }, rej)); }
 
 const colliders = [], pickables = [];
@@ -216,6 +216,7 @@ function prep(root, collide){
     if (!o.isMesh) return;
     o.castShadow = true; o.receiveShadow = true;
     const ms = Array.isArray(o.material) ? o.material : [o.material];
+    if (ms.some(m => /^wires/.test(m.name))) { o.visible = false; return; }
     for (const m of ms){
       if (m.transmission > 0){ m.transmission = 0; m.transparent = true; m.opacity = 0.18; m.roughness = 0.05; m.depthWrite = false; o.castShadow = false; }
       if (m.map) m.map.anisotropy = 4;
@@ -413,7 +414,7 @@ canvas.addEventListener('pointermove', e => {
 });
 canvas.addEventListener('pointerup', e => {
   if (!drag) return; const moved = Math.hypot(e.clientX-drag.sx, e.clientY-drag.sy), dt = performance.now()-drag.t; drag = null;
-  if (moved < 7 && dt < 450){ const now = performance.now(); click(e, now - lastTap < 320); lastTap = now; }
+  if (moved < 8 && dt < 900){ const now = performance.now(); click(e, now - lastTap < 320); lastTap = now; }
 });
 const ndc = new THREE.Vector2();
 function pick(e){
@@ -496,17 +497,17 @@ function frame(now){
 /* --- boot --- */
 (async () => {
   try{
-    const [sd, sn] = await Promise.all([loadSky('sky.jpg'), loadSky('sky_night.jpg')]);
+    const [sd, sn] = await Promise.all([loadSky('sky_city.jpg'), loadSky('sky_night.jpg')]);
     skyDay = sd; skyNight = sn; envDay = pmrem.fromEquirectangular(sd).texture; envNight = pmrem.fromEquirectangular(sn).texture;
     await buildLights();
-    const [house, items] = await Promise.all([load('house.glb','house'), load('items.glb','items')]);
+    const [house, items, items2] = await Promise.all([load('house.glb','house'), load('items_0.glb','items'), load('items_1.glb','items2')]);
     $('lt').textContent = '準備互動物件…';
     await new Promise(r => setTimeout(r, 30));
-    scene.add(house, items);
-    prep(house, true); prep(items, false); tintFabric(items);
-    const hide = items.getObjectByName('漫遊目標') || house.getObjectByName('漫遊目標'); if (hide) hide.visible = false;
+    scene.add(house, items, items2);
+    prep(house, true); prep(items, false); prep(items2, false); tintFabric(items); tintFabric(items2);
+    for (const r of [house, items, items2]) { const h = r.getObjectByName('漫遊目標'); if (h) h.visible = false; }
     findDoors(house);
-    items.traverse(o => { if (o.name === '真實_電視畫面'){ tvScreen = o.isMesh ? o : (o.children.find(c=>c.isMesh) || o); } });
+    [items, items2].forEach(r => r.traverse(o => { if (o.name === '真實_電視畫面'){ tvScreen = o.isMesh ? o : (o.children.find(c=>c.isMesh) || o); } }));
     if (tvScreen && tvScreen.isMesh){ tvScreen.material = tvScreen.material.clone(); }
     setTV();
     if (extra['魚缸燈']) extra['魚缸燈'].visible = false;
