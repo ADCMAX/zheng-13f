@@ -123,6 +123,7 @@ button:focus-visible{outline:2px solid var(--oak);outline-offset:2px}
 
 <div class="load" id="load"><div class="in"><b>鄭公館 13F</b><div class="tr"><i id="bar"></i></div><span id="lt">載入模型 0%</span></div></div>
 
+<script>setTimeout(function(){var t=document.getElementById("lt");if(t&&/ 0%$/.test(t.textContent))t.textContent="仍在連線下載中，若持續停在 0% 請換 Wi-Fi 或重新整理";},40000);</script>
 <script type="importmap">
 { "imports": {
   "three": "./lib/three.module.js",
@@ -141,12 +142,17 @@ THREE.Mesh.prototype.raycast = acceleratedRaycast;
 
 const $ = id => document.getElementById(id);
 const canvas = $('c');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 1.6));
+const MOBILE = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform));
+function fail(msg){ const lt = $('lt'); if (lt && !$('load').hidden) lt.textContent = '載入失敗：' + msg + '。請重新整理頁面。'; }
+window.addEventListener('error', e => fail(e.message || '腳本錯誤'));
+window.addEventListener('unhandledrejection', e => fail((e.reason && e.reason.message) || e.reason || '未知錯誤'));
+canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); fail('手機繪圖記憶體不足（WebGL 中斷）'); });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: !MOBILE, powerPreference: MOBILE ? 'default' : 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, MOBILE ? 1.25 : 1.6));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.85;
-renderer.shadowMap.enabled = true;
+renderer.shadowMap.enabled = !MOBILE;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
@@ -172,7 +178,7 @@ function loadSky(url){ return new Promise(r => tl.load(url, t => { t.mapping = T
 const sun = new THREE.DirectionalLight(0xffeedd, 3.2);
 const sunDir = new THREE.Vector3(-0.312, -0.407, 0.858).normalize();
 sun.position.copy(sunDir).multiplyScalar(-18); sun.target.position.set(0,0,0);
-sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096);
+sun.castShadow = true; sun.shadow.mapSize.set(MOBILE ? 1024 : 4096, MOBILE ? 1024 : 4096);
 Object.assign(sun.shadow.camera, { left:-9, right:9, top:9, bottom:-9, near:1, far:40 });
 sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
 scene.add(sun, sun.target);
@@ -201,10 +207,15 @@ async function buildLights(){
 
 /* --- models --- */
 const draco = new DRACOLoader(); draco.setDecoderPath('draco/');
+draco.setWorkerLimit(MOBILE ? 1 : 4);
 const gltf = new GLTFLoader(); gltf.setDRACOLoader(draco);
 const progress = {house:0, items:0, items2:0};
 function setProg(){ const p = Math.round((progress.house*0.2 + progress.items*0.4 + progress.items2*0.4)*100); $('bar').style.width = p+'%'; $('lt').textContent = '載入模型 '+p+'%'; }
-function load(url, key){ return new Promise((res, rej) => gltf.load(url, g => { progress[key]=1; setProg(); res(g.scene); }, e => { if (e.total) { progress[key] = e.loaded/e.total; setProg(); } }, rej)); }
+const SIZE = MOBILE ? {house:3241596, items:5796156, items2:6045232} : {house:3403356, items:7896960, items2:8072788};
+function load(url, key){ url = (MOBILE ? 'm_' : '') + url;
+  return new Promise((res, rej) => gltf.load(url, g => { progress[key]=1; setProg(); res(g.scene); },
+    e => { progress[key] = Math.min(0.97, e.loaded / (e.total || SIZE[key])); setProg(); if (progress[key] > 0.96) $('lt').textContent = '解壓縮模型中…'; },
+    err => rej(new Error(url + ' ' + ((err && err.message) || '下載失敗'))))); }
 
 const colliders = [], pickables = [];
 const doors = [];        // {node, base:Quaternion, sgn, t, to}
@@ -214,7 +225,7 @@ const devices = {};      // name -> state
 function prep(root, collide){
   root.traverse(o => {
     if (!o.isMesh) return;
-    o.castShadow = true; o.receiveShadow = true;
+    o.castShadow = !MOBILE; o.receiveShadow = !MOBILE;
     const ms = Array.isArray(o.material) ? o.material : [o.material];
     if (ms.some(m => /^wires/.test(m.name))) { o.visible = false; return; }
     for (const m of ms){
@@ -500,7 +511,9 @@ function frame(now){
     const [sd, sn] = await Promise.all([loadSky('sky_city.jpg'), loadSky('sky_night.jpg')]);
     skyDay = sd; skyNight = sn; envDay = pmrem.fromEquirectangular(sd).texture; envNight = pmrem.fromEquirectangular(sn).texture;
     await buildLights();
-    const [house, items, items2] = await Promise.all([load('house.glb','house'), load('items_0.glb','items'), load('items_1.glb','items2')]);
+    let house, items, items2;
+    if (MOBILE){ house = await load('house.glb','house'); items = await load('items_0.glb','items'); items2 = await load('items_1.glb','items2'); }
+    else [house, items, items2] = await Promise.all([load('house.glb','house'), load('items_0.glb','items'), load('items_1.glb','items2')]);
     $('lt').textContent = '準備互動物件…';
     await new Promise(r => setTimeout(r, 30));
     scene.add(house, items, items2);
